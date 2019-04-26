@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <!--
+Created using JS Bin
+http://jsbin.com
+
+Copyright (c) 2016 by josepedrodias (http://jsbin.com/wateji/4/edit)
+
+Released under the MIT license: http://jsbin.mit-license.org
+-->
+    <meta name="robots" content="noindex" />
+    <meta name="description" content="world geojson render in canvas" />
+    <title>world geojson render in canvas</title>
+    <meta name="viewport" content="width=512, user-scalable=0" />
+
+    <style id="jsbin-css">
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        overflow: hidden;
+        background-color: #000;
+      }
+
+      canvas {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        margin-left: -256px;
+        margin-top: -256px;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas width="512" height="512"></canvas>
+    <script>
+      var ajax = function(uri, cb) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', uri, true);
+        var cbInner = function() {
+          if (xhr.readyState === 4 && xhr.status === 200) {
+            return cb(null, JSON.parse(xhr.response));
+          }
+          cb('error requesting ' + uri);
+        };
+        xhr.onload = cbInner;
+        xhr.onerror = cbInner;
+        xhr.send(null);
+      };
+
+      // var url = 'http://crossorigin.me/http://rawgit.com/johan/world.geo.json/master/countries.geo.json';
+      var url = 'countries.geo.json';
+
+      var rho = 256;
+      var ang = 0;
+
+      var DEG2RAD = Math.PI / 180;
+      var RAD2DEG = 180 / Math.PI;
+
+      var latLonToXYZ = function(p) {
+        var phi = p[1] * DEG2RAD;
+        var theta = p[0] * DEG2RAD + ang;
+        return [
+          Math.cos(phi) * Math.cos(theta) * rho,
+          Math.cos(phi) * Math.sin(theta) * rho,
+          -Math.sin(phi) * rho
+        ];
+      };
+
+      var el = document.querySelector('canvas');
+      var c = el.getContext('2d');
+
+      window.console.time('ajax');
+      window.console.log('requesting ' + url + '...');
+      ajax(url, function(err, world) {
+        if (err) {
+          return window.alert(err);
+        }
+        window.console.log('got data');
+        window.console.timeEnd('ajax');
+
+        window.w = world;
+
+        var xtransform = function(p) {
+          return [p[0], -p[1]];
+        };
+
+        var transform = function(p) {
+          var P = latLonToXYZ(p);
+          return [P[1], P[2]];
+        };
+
+        var wrap = function(n, m) {
+          while (true) {
+            if (n > m) {
+              n -= 2 * m;
+            } else if (n < -m) {
+              n += 2 * m;
+            }
+            if (n <= m && n >= -m) {
+              return n;
+            }
+          }
+        };
+
+        var drawPoly = function(po) {
+          var a = wrap(po[0][0] + ang * RAD2DEG, 180);
+          if (a < -90 || a > 90) {
+            return;
+          }
+
+          c.beginPath();
+          po.forEach(function(p, i) {
+            p = transform(p);
+            if (i === 0) {
+              c.moveTo(p[0], p[1]);
+            } else {
+              c.lineTo(p[0], p[1]);
+            }
+          });
+          c.stroke();
+        };
+
+        window.console.time('parse');
+        var polys = [];
+        world.features.forEach(function(f) {
+          f.geometry.coordinates.forEach(function(g) {
+            if (typeof g[0][0] === 'number') {
+              polys.push(g);
+            } else {
+              g.forEach(function(h) {
+                polys.push(h);
+              });
+            }
+          });
+        });
+        window.console.timeEnd('parse');
+
+        c.strokeStyle = '#FFF';
+        c.fillStyle = '#FFF';
+
+        var draw = function() {
+          c.clearRect(0, 0, 512, 512);
+          c.save();
+          c.translate(256, 256);
+          polys.forEach(drawPoly);
+          c.restore();
+        };
+
+        setInterval(function() {
+          ang -= 0.04;
+          draw();
+        }, 1000 / 20);
+      });
+    </script>
+    <script src="http://static.jsbin.com/js/render/edit.js?3.38.29"></script>
+    <script>
+      jsbinShowEdit &&
+        jsbinShowEdit({
+          static: 'http://static.jsbin.com',
+          root: 'http://jsbin.com'
+        });
+    </script>
+    <script>
+      (function(i, s, o, g, r, a, m) {
+        i['GoogleAnalyticsObject'] = r;
+        (i[r] =
+          i[r] ||
+          function() {
+            (i[r].q = i[r].q || []).push(arguments);
+          }),
+          (i[r].l = 1 * new Date());
+        (a = s.createElement(o)), (m = s.getElementsByTagName(o)[0]);
+        a.async = 1;
+        a.src = g;
+        m.parentNode.insertBefore(a, m);
+      })(
+        window,
+        document,
+        'script',
+        'https://www.google-analytics.com/analytics.js',
+        'ga'
+      );
+
+      ga('create', 'UA-1656750-34', 'auto');
+      ga('require', 'linkid', 'linkid.js');
+      ga('require', 'displayfeatures');
+      ga('send', 'pageview');
+    </script>
+  </body>
+</html>

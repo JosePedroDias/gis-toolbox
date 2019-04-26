@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <!--
+Created using JS Bin
+http://jsbin.com
+
+Copyright (c) 2016 by josepedrodias (http://jsbin.com/qaripe/11/edit)
+
+Released under the MIT license: http://jsbin.mit-license.org
+-->
+    <meta name="robots" content="noindex" />
+    <meta name="description" content="correct mercator local" />
+    <title>correct mercator local</title>
+
+    <style id="jsbin-css">
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #000;
+      }
+    </style>
+  </head>
+
+  <body>
+    <script>
+      // PARAMETERS
+
+      var W = 1024; // canvas size
+
+      var PI = Math.PI;
+      var PI2 = PI * 2;
+      var PIov4 = PI / 4;
+      var DEG2RAD = PI / 180;
+
+      var el = document.createElement('canvas');
+      el.setAttribute('width', W);
+      el.setAttribute('height', W);
+      document.body.appendChild(el);
+      var c = el.getContext('2d');
+      c.strokeStyle = '#FFF';
+
+      var ajax = function(uri, cb) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', uri, true);
+        var cbInner = function() {
+          if (xhr.readyState === 4 && xhr.status === 200) {
+            return cb(null, JSON.parse(xhr.response));
+          }
+          cb('error requesting ' + uri);
+        };
+        xhr.onload = cbInner;
+        xhr.onerror = cbInner;
+        xhr.send(null);
+      };
+
+      var seq = function(n) {
+        var arr = new Array(n);
+        for (var i = 0; i < n; ++i) {
+          arr[i] = i;
+        }
+        return arr;
+      };
+
+      // var url = 'http://crossorigin.me/http://rawgit.com/johan/world.geo.json/master/countries.geo.json';
+      var url = 'countries.geo.json';
+
+      // [lat,lon] to [-PI,PI] [-PI,PI]
+      var mercatorTr = function(p) {
+        var x = p[0] * DEG2RAD;
+        var y = p[1] * DEG2RAD;
+        y = Math.log(Math.tan(PIov4 + y / 2));
+        return [x, y];
+      };
+
+      // to [0,W], [0,W]
+      var mercator2Tr = function(p) {
+        p = mercatorTr(p);
+        return [(W * (p[0] + PI)) / PI2, W - (W * (p[1] + PI)) / PI2];
+      };
+
+      var drawPoly = function(po, transformFn) {
+        c.beginPath();
+        po.forEach(function(p, i) {
+          p = transformFn(p);
+          if (i === 0) {
+            c.moveTo(p[0], p[1]);
+          } else {
+            c.lineTo(p[0], p[1]);
+          }
+        });
+        c.stroke();
+      };
+
+      var drawWorld = function(world, transformFn) {
+        world.features.forEach(function(f) {
+          f.geometry.coordinates.forEach(function(g) {
+            if (typeof g[0][0] === 'number') {
+              drawPoly(g, transformFn);
+            } else {
+              g.forEach(function(h) {
+                drawPoly(h, transformFn);
+              });
+            }
+          });
+        });
+      };
+
+      var genLine = function(points) {
+        return {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: points
+          }
+        };
+      };
+
+      var addLines = function(world) {
+        // -180 -> 180 (37) | -80 -> 80 (17) | -90 -> 90 (19)
+        // horizontal lines
+        seq(19).forEach(function(i) {
+          i = (i - 9) * 10;
+          if (i === -90) {
+            i = -85;
+          } else if (i === 90) {
+            i = 85;
+          }
+          world.features.push(
+            genLine([
+              seq(37).map(function(j) {
+                j = -180 + j * 10;
+                return [j, i];
+              })
+            ])
+          );
+        });
+
+        //vertical lines
+        seq(37).forEach(function(j) {
+          j = -180 + j * 10;
+          world.features.push(
+            genLine([
+              seq(19).map(function(i) {
+                i = (i - 9) * 10;
+                if (i === -90) {
+                  i = -85;
+                } else if (i === 90) {
+                  i = 85;
+                }
+                return [j, i];
+              })
+            ])
+          );
+        });
+      };
+
+      ajax(url, function(err, world) {
+        if (err) {
+          return window.alert(err);
+        }
+
+        addLines(world);
+        drawWorld(world, mercator2Tr);
+      });
+    </script>
+  </body>
+</html>

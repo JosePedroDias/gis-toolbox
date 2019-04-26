@@ -8,6 +8,8 @@ const π2 = 2 * Math.PI;
 const RAD2DEG = 180 / π;
 const DEG2RAD = π / 180;
 
+const RK = 6373; // mean radius of the earth (km) at 39 degrees from the equator
+
 const tileDim = 256;
 
 
@@ -126,11 +128,49 @@ function tileBoundsGoogle(loc, zoom) {
 }
 
 
+
 function tmsToGoogleToggleY(y, zoom) {
   const t = powersOf2[zoom];
   return t - y - 1;
 }
 
+
+
+function distance(a, b) {
+  // convert coordinates to radians
+  const lat1 = DEG2RAD * a.lat;
+  const lon1 = DEG2RAD * a.lon;
+  const lat2 = DEG2RAD * b.lat;
+  const lon2 = DEG2RAD * b.lon;
+
+  // find the differences between the coordinates
+  const dlat = lat2 - lat1;
+  const dlon = lon2 - lon1;
+
+  // here's the heavy lifting
+  const aa = Math.pow(
+          Math.sin(dlat/2),
+          2
+      ) +
+      Math.pow(
+          Math.sin(dlon/2) *
+          Math.cos(lat1) *
+          Math.cos(lat2),
+          2
+      );
+
+  const c = 2 * Math.atan2(
+      Math.sqrt(aa),
+      Math.sqrt(1-aa)
+  ); // great circle distance in radians
+
+  const dk = c * RK; // great circle distance in km
+
+  // round the results down to the nearest 1/1000
+  const km = Math.round( dk * 1000) / 1000;
+
+  return km;
+}
 
 
 
@@ -140,5 +180,6 @@ module.exports = {
   tileIndicesTMS        : tileIndicesTMS,
   fromTileIndicesGoogle : fromTileIndicesGoogle,
   tileBoundsGoogle      : tileBoundsGoogle,
-  tmsToGoogleToggleY    : tmsToGoogleToggleY
+  tmsToGoogleToggleY    : tmsToGoogleToggleY,
+  distance              : distance
 };

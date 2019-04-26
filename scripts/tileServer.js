@@ -7,7 +7,10 @@ const fs = require('fs');
 
 const flatFilename = 'height/flat.png';
 
-
+const head = {
+  'Content-Type'                : 'image/png',
+  'Access-Control-Allow-Origin' : '*'
+};
 
 http.createServer(function(req, res) {
   const parts = req.url.split(/[\/\.]/);
@@ -19,7 +22,7 @@ http.createServer(function(req, res) {
   // console.log(filename);
 
   fs.exists(filename, function(exists) {
-    res.writeHead(200, 'image/png');
+    res.writeHead(200, head);
     fs.createReadStream(exists ? filename : flatFilename).pipe(res);
   });
 }).listen(9999);
